@@ -194,3 +194,4 @@ As required by the assignment guidelines, this application was developed with th
 * **Architecture & Scaffolding:** Prompt-guided decomposition of business requirements into microservice endpoints, schema contracts, and React component hierarchies.
 * **API Research:** Accelerated discovery of the Elexon BMRS IRIS stream specification parameters (`settlementDateFrom`, `settlementDateTo`, `publishDateTimeFrom`).
 * **Implementation & Verification:** Code generation of mathematical error formulas, Recharts visualizations, and responsive CSS styling, followed by full human code review, syntax verification, end-to-end testing, and Docker optimization.
+

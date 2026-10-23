@@ -1,120 +1,107 @@
 # Deployment Guide: AEROPOW·UK Wind Forecast Dashboard
 
-This document provides step-by-step instructions for deploying the AEROPOW·UK Wind Forecast application across local and cloud environments (Docker, Vercel, Heroku).
+This guide covers all deployment options for AEROPOW·UK:
+1. **Unified Vercel Deployment** (Frontend + Python Backend together on Vercel)
+2. **Split Deployment** (Vercel Frontend + Heroku/Render Backend)
+3. **Local Docker Compose** (Full stack in containers)
+4. **Local Development** (Manual Node + Python)
 
 ---
 
-## 1. Quick Start: Local Docker (Recommended)
+## 1. Unified Deployment on Vercel (Frontend + Python Backend Together)
 
-The entire application (FastAPI backend + React frontend via Nginx) is orchestrated via Docker Compose.
+Yes! You can deploy **both** the React frontend and the Python FastAPI backend directly on Vercel in a **single deployment**:
 
+### How It Works Under the Hood
+* Vercel builds the React frontend via `@vercel/static-build` from `frontend/package.json`.
+* Vercel turns the FastAPI app in `api/index.py` into a Serverless Function via `@vercel/python`.
+* Requests to `/api/*` automatically route to the FastAPI backend without any CORS issues.
+* Everything is configured in the root `vercel.json`.
+
+### Step-by-Step Deployment:
+
+#### Option A: Via GitHub (Recommended - 1 Click)
+1. Go to [vercel.com](https://vercel.com) and log in.
+2. Click **"Add New..."** → **"Project"**.
+3. Import your GitHub repository: `https://github.com/arkp1/abcd`.
+4. Keep the default settings (Root Directory as `./`).
+5. Click **Deploy**.
+6. Vercel will:
+   * Build the React frontend into static assets.
+   * Provision the Python runtime for `api/index.py` with FastAPI & Pandas.
+   * Give you a live URL like `https://abcd-arkp1.vercel.app`.
+
+#### Option B: Via Vercel CLI
 ```bash
-# Clone or navigate to the repository
+# Install Vercel CLI
+npm install -g vercel
+
+# From the root directory:
 cd "c:\Users\arkpr\Downloads\databricks assessment"
 
-# Build and run containers
-docker-compose up --build
+# Deploy to preview
+vercel
+
+# Deploy to production
+vercel --prod
 ```
 
-* **Frontend UI:** Open your browser to `http://localhost:3000`
-* **Backend API & Swagger Docs:** Open `http://localhost:8000/docs`
-* **Health Check:** `http://localhost:8000/api/health`
+### Important Vercel Serverless Notes:
+* **Hobby (Free) Tier Timeout:** Vercel serverless functions on the free Hobby plan have a maximum execution timeout of **10 to 15 seconds**.
+* **Cold Starts:** Initial calls after idle periods take 1–3 seconds to spin up Python and load Pandas.
+* **Query Range Tip:** Querying 7-day or 14-day ranges loads well within the timeout. Full 31-day queries can take ~8–12s on first fetch before hitting the in-memory cache.
 
 ---
 
-## 2. Deploying to Heroku
+## 2. Split Deployment: Vercel (Frontend) + Heroku (Backend)
 
-### Option A: Heroku Git (Backend + Frontend or Backend Only)
+For trading desks requiring persistent server instances with zero cold starts and no 15-second timeout limits:
 
-#### Deploying the Python Backend to Heroku:
+### Step 1: Deploy Backend to Heroku
 ```bash
 cd backend
-
-# Log in to Heroku CLI
 heroku login
-
-# Create new Heroku app
 heroku create aeropow-backend
-
-# Deploy application code
 git init
 git add .
 git commit -m "Deploy FastAPI Backend"
 heroku git:remote -a aeropow-backend
 git push heroku master
-
-# Open health check
-heroku open /api/health
 ```
 
-#### Deploying via Heroku Container Registry:
-```bash
-# Log in to container registry
-heroku container:login
-
-# Build and push Docker image
-cd backend
-heroku container:push web -a aeropow-backend
-heroku container:release web -a aeropow-backend
-```
-
----
-
-## 3. Deploying to Vercel
-
-The React frontend is optimized for zero-configuration static deployment on Vercel.
-
-### Step 1: Install Vercel CLI
-```bash
-npm install -g vercel
-```
-
-### Step 2: Deploy Frontend
+### Step 2: Deploy Frontend to Vercel
 ```bash
 cd frontend
-
-# Deploy preview build
-vercel
-
-# Deploy production build with Backend API environment variable
 vercel --prod --build-env REACT_APP_API_URL=https://aeropow-backend.herokuapp.com
 ```
 
-### Step 3: API Proxying
-`frontend/vercel.json` contains route rewrites that automatically forward `/api/*` calls from the Vercel edge network directly to your hosted backend, preventing any CORS complications.
+---
+
+## 3. Local Docker Compose (Full Stack)
+
+```bash
+docker-compose up --build
+```
+* **Frontend:** `http://localhost:3000`
+* **Backend:** `http://localhost:8000`
+* **Swagger Docs:** `http://localhost:8000/docs`
 
 ---
 
-## 4. Local Manual Development (Without Docker)
+## 4. Local Manual Development
 
-### Backend (Terminal 1)
+### Terminal 1: Backend
 ```bash
 cd backend
 python -m venv venv
-# Windows:
-.\venv\Scripts\activate
-# Linux/macOS:
-source venv/bin/activate
-
+.\venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend (Terminal 2)
+### Terminal 2: Frontend
 ```bash
 cd frontend
 npm install
 npm start
-# Automatically opens http://localhost:3000
 ```
-
----
-
-## 5. Environment Variables
-
-| Variable | Target | Default | Description |
-|---|---|---|---|
-| `REACT_APP_API_URL` | Frontend | `http://localhost:8000` | URL of the FastAPI backend service |
-| `ELEXON_BASE_URL` | Backend | `https://data.elexon.co.uk/bmrs/api/v1` | Root URL for Elexon BMRS API |
-| `PORT` | Backend | `8000` | Port listened to by Uvicorn (managed by Heroku dynamically) |
-

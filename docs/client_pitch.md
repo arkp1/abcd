@@ -131,3 +131,4 @@ AEROPOW·UK is container-native, modern, and ready for pilot deployment:
 
 > [!TIP]
 > **Next Step:** We invite your Day-Ahead power trading team to test-drive the live platform against January 2026 data and run a 30-day side-by-side shadow trading trial.
+
