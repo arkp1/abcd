@@ -10,3 +10,4 @@ if backend_dir not in sys.path:
 
 # Import the FastAPI instance
 from app.main import app
+
