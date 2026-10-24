@@ -32,10 +32,11 @@ app deploys:
 - **Production branch:** `main` (every merge to `main` auto-deploys)
 - **Environment variables:** none
 
-> History note: this repo previously had three Vercel projects (frontend-only,
-> backend-only, and the Services one) all deploying from `main`, plus a stale
-> `frontend/vercel.json` rewrite to a non-existent Heroku app. The duplicates
-> were deleted; keep exactly one project (the Services one above).
+> History note: this repo previously had six Vercel projects all deploying
+> from `main` (frontend-only, backend-only, and repeat Services imports),
+> plus a stale `frontend/vercel.json` rewrite to a non-existent Heroku app.
+> The five duplicates were deleted; keep exactly one project (the Services
+> one above).
 
 ### Verify a deployment
 
