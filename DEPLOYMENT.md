@@ -1,107 +1,106 @@
 # Deployment Guide: AEROPOW·UK Wind Forecast Dashboard
 
-This guide covers all deployment options for AEROPOW·UK:
-1. **Unified Vercel Deployment** (Frontend + Python Backend together on Vercel)
-2. **Split Deployment** (Vercel Frontend + Heroku/Render Backend)
-3. **Local Docker Compose** (Full stack in containers)
-4. **Local Development** (Manual Node + Python)
+## Production: Unified Vercel Services deployment (canonical)
+
+Frontend (React/CRA) and backend (FastAPI) deploy together as **one Vercel
+project** using [Vercel Services](https://vercel.com/docs/services), behind a
+single domain.
+
+- **Live URL:** https://abcd-citf.vercel.app
+- **Config:** root `vercel.json` declares two services:
+  - `frontend` — root `frontend/`, framework `create-react-app`
+  - `backend` — root `backend/`, framework `fastapi`, entrypoint `main:app`
+    (which re-exports the app from `backend/app/main.py`)
+- **Routing:** top-level rewrites in the root `vercel.json` send `/api/*` to
+  the backend service and everything else to the frontend service. Rewrites
+  preserve the path, so the backend's existing `/api/...` routes match as-is.
+- **API calls:** the frontend uses same-origin relative URLs
+  (`frontend/src/api.js` defaults the base URL to `''`), so the browser calls
+  e.g. `/api/health` on the same domain. **No environment variables and no
+  CORS configuration are needed in production.** Never default the API base
+  to `http://localhost:8000` — CRA bakes `REACT_APP_*` values into the bundle
+  at build time, and in a visitor's browser `localhost` is their machine.
+
+### Required Vercel project settings
+
+These must match, or the root `vercel.json` is ignored and only part of the
+app deploys:
+
+- **Root Directory:** repository root (empty / `./`) — *not* `frontend` or
+  `backend`
+- **Framework Preset:** Services
+- **Production branch:** `main` (every merge to `main` auto-deploys)
+- **Environment variables:** none
+
+> History note: this repo previously had three Vercel projects (frontend-only,
+> backend-only, and the Services one) all deploying from `main`, plus a stale
+> `frontend/vercel.json` rewrite to a non-existent Heroku app. The duplicates
+> were deleted; keep exactly one project (the Services one above).
+
+### Verify a deployment
+
+```bash
+curl https://abcd-citf.vercel.app/api/health
+curl "https://abcd-citf.vercel.app/api/actuals?date_from=2026-01-15&date_to=2026-01-16"
+```
+
+Then open https://abcd-citf.vercel.app and check the dashboard loads data.
+
+### Serverless notes
+
+- First request after idle has a cold start (Python + Pandas load).
+- The default view queries all of January 2026; the backend fetches Elexon
+  data in sequential 7-day chunks and caches per serverless instance
+  (in-memory, 10 min TTL in `backend/app/routes.py`), so a cold full-month
+  query can take several seconds. The frontend allows up to 90s per request.
 
 ---
 
-## 1. Unified Deployment on Vercel (Frontend + Python Backend Together)
-
-Yes! You can deploy **both** the React frontend and the Python FastAPI backend directly on Vercel in a **single deployment**:
-
-### How It Works Under the Hood
-* Vercel builds the React frontend via `@vercel/static-build` from `frontend/package.json`.
-* Vercel turns the FastAPI app in `api/index.py` into a Serverless Function via `@vercel/python`.
-* Requests to `/api/*` automatically route to the FastAPI backend without any CORS issues.
-* Everything is configured in the root `vercel.json`.
-
-### Step-by-Step Deployment:
-
-#### Option A: Via GitHub (Recommended - 1 Click)
-1. Go to [vercel.com](https://vercel.com) and log in.
-2. Click **"Add New..."** → **"Project"**.
-3. Import your GitHub repository: `https://github.com/arkp1/abcd`.
-4. Keep the default settings (Root Directory as `./`).
-5. Click **Deploy**.
-6. Vercel will:
-   * Build the React frontend into static assets.
-   * Provision the Python runtime for `api/index.py` with FastAPI & Pandas.
-   * Give you a live URL like `https://abcd-arkp1.vercel.app`.
-
-#### Option B: Via Vercel CLI
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# From the root directory:
-cd "c:\Users\arkpr\Downloads\databricks assessment"
-
-# Deploy to preview
-vercel
-
-# Deploy to production
-vercel --prod
-```
-
-### Important Vercel Serverless Notes:
-* **Hobby (Free) Tier Timeout:** Vercel serverless functions on the free Hobby plan have a maximum execution timeout of **10 to 15 seconds**.
-* **Cold Starts:** Initial calls after idle periods take 1–3 seconds to spin up Python and load Pandas.
-* **Query Range Tip:** Querying 7-day or 14-day ranges loads well within the timeout. Full 31-day queries can take ~8–12s on first fetch before hitting the in-memory cache.
-
----
-
-## 2. Split Deployment: Vercel (Frontend) + Heroku (Backend)
-
-For trading desks requiring persistent server instances with zero cold starts and no 15-second timeout limits:
-
-### Step 1: Deploy Backend to Heroku
-```bash
-cd backend
-heroku login
-heroku create aeropow-backend
-git init
-git add .
-git commit -m "Deploy FastAPI Backend"
-heroku git:remote -a aeropow-backend
-git push heroku master
-```
-
-### Step 2: Deploy Frontend to Vercel
-```bash
-cd frontend
-vercel --prod --build-env REACT_APP_API_URL=https://aeropow-backend.herokuapp.com
-```
-
----
-
-## 3. Local Docker Compose (Full Stack)
+## Local Docker Compose (full stack)
 
 ```bash
 docker-compose up --build
 ```
-* **Frontend:** `http://localhost:3000`
-* **Backend:** `http://localhost:8000`
-* **Swagger Docs:** `http://localhost:8000/docs`
+
+- Frontend: http://localhost:3000 (nginx serves the static build and proxies
+  `/api/` to the backend container — see `frontend/nginx.conf`)
+- Backend: http://localhost:8000/api/health · Swagger: http://localhost:8000/docs
+
+The static frontend bundle calls relative `/api/*`, so no API URL env var is
+needed (a runtime env var could not change already-built JS anyway).
 
 ---
 
-## 4. Local Manual Development
+## Local manual development
 
 ### Terminal 1: Backend
+
 ```bash
 cd backend
 python -m venv venv
-.\venv\Scripts\activate   # Windows
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
 ### Terminal 2: Frontend
+
 ```bash
 cd frontend
+# point the dev server at the local backend (dev only — never commit this)
+echo "REACT_APP_API_URL=http://localhost:8000" > .env.local
 npm install
-npm start
+npm start                        # http://localhost:3000
 ```
+
+---
+
+## Alternative: persistent backend host (Render / Railway / Fly / Heroku)
+
+Only needed if serverless cold starts ever become a problem. The backend is a
+standard ASGI app: `backend/Procfile` (`uvicorn app.main:app --host 0.0.0.0
+--port ${PORT:-8000}`) and `backend/Dockerfile` both work (`uvicorn` is in
+`requirements.txt`). If you split the deployment this way, either build the
+frontend with `REACT_APP_API_URL=https://<your-backend-host>` or add a rewrite
+proxying `/api/*` to that host — and remember CRA env vars are baked in at
+build time, so a redeploy is required after changing them.

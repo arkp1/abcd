@@ -1,10 +1,18 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Default to same-origin relative requests (e.g. "/api/health").
+// In production on Vercel, the root vercel.json rewrites /api/* to the
+// FastAPI backend service, so no host/env var is needed. For local
+// development against a backend on another port, create frontend/.env.local
+// with: REACT_APP_API_URL=http://localhost:8000
+// Never default to http://localhost:8000 here: CRA bakes this value into the
+// production bundle at build time, and in a visitor's browser "localhost"
+// is the visitor's own machine, not our backend.
+const API_BASE = process.env.REACT_APP_API_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 30000,
+  timeout: 90000,
   headers: {
     'Content-Type': 'application/json',
   },
