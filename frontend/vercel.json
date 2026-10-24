@@ -1,13 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://wind-forecast-backend.herokuapp.com/api/$1"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
-

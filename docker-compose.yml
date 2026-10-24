@@ -23,6 +23,8 @@ services:
       - "3000:80"
     depends_on:
       - backend
-    environment:
-      - REACT_APP_API_URL=http://backend:8000
+    # No REACT_APP_API_URL here: the frontend is a static build served by
+    # nginx (env vars at container runtime cannot change already-built JS).
+    # The bundle calls relative /api/* and nginx proxies that to backend:8000
+    # (see frontend/nginx.conf).
 
